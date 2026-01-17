@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Icon from '@/components/ui/icon';
 import CallWindow from './CallWindow';
+import EmojiPicker from './EmojiPicker';
 
 type CallType = 'audio' | 'video' | null;
 
@@ -12,6 +13,9 @@ interface Message {
   time: string;
   isMine: boolean;
   status?: 'sent' | 'delivered' | 'read';
+  type?: 'text' | 'image' | 'file';
+  fileUrl?: string;
+  fileName?: string;
 }
 
 const mockMessages: Message[] = [
@@ -25,15 +29,68 @@ const mockMessages: Message[] = [
 interface ChatWindowProps {
   chatId: number;
   onClose: () => void;
+  wallpaper?: string;
 }
 
-const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
+const ChatWindow = ({ chatId, onClose, wallpaper = 'default' }: ChatWindowProps) => {
   const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState(mockMessages);
   const [isTyping] = useState(false);
   const [activeCall, setActiveCall] = useState<CallType>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const chatName = 'Анна Смирнова';
   const isOnline = true;
+
+  const handleEmojiSelect = (emoji: string) => {
+    setMessage(prev => prev + emoji);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const newMessage: Message = {
+        id: messages.length + 1,
+        text: file.name,
+        time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        isMine: true,
+        status: 'sent',
+        type: file.type.startsWith('image/') ? 'image' : 'file',
+        fileUrl: event.target?.result as string,
+        fileName: file.name
+      };
+      setMessages([...messages, newMessage]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSendMessage = () => {
+    if (!message.trim()) return;
+    
+    const newMessage: Message = {
+      id: messages.length + 1,
+      text: message,
+      time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      isMine: true,
+      status: 'sent',
+      type: 'text'
+    };
+    setMessages([...messages, newMessage]);
+    setMessage('');
+  };
+
+  const getWallpaperStyle = () => {
+    const patterns: Record<string, string> = {
+      dots: 'radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)',
+      lines: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.05) 20px)',
+      grid: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
+      waves: 'repeating-radial-gradient(circle at 0 0, transparent 0, rgba(255,255,255,0.05) 10px, transparent 20px)'
+    };
+    return patterns[wallpaper] || '';
+  };
 
   return (
     <>
@@ -81,9 +138,15 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea 
+        className="flex-1 p-4"
+        style={{
+          backgroundImage: getWallpaperStyle(),
+          backgroundSize: wallpaper === 'grid' ? '20px 20px' : 'auto'
+        }}
+      >
         <div className="space-y-4">
-          {mockMessages.map((msg) => (
+          {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex ${msg.isMine ? 'justify-end' : 'justify-start'} animate-fade-in`}
@@ -95,7 +158,20 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
                     : 'bg-white/20 text-white rounded-bl-sm'
                 }`}
               >
-                <p className="text-sm">{msg.text}</p>
+                {msg.type === 'image' && msg.fileUrl && (
+                  <img 
+                    src={msg.fileUrl} 
+                    alt={msg.fileName}
+                    className="rounded-lg mb-2 max-w-full"
+                  />
+                )}
+                {msg.type === 'file' && (
+                  <div className="flex items-center gap-2 mb-2 p-2 bg-white/10 rounded-lg">
+                    <Icon name="FileText" size={20} />
+                    <span className="text-sm truncate">{msg.fileName}</span>
+                  </div>
+                )}
+                {msg.type === 'text' && <p className="text-sm">{msg.text}</p>}
                 <div className="flex items-center gap-1 justify-end mt-1">
                   <span className="text-xs opacity-70">{msg.time}</span>
                   {msg.isMine && msg.status === 'read' && (
@@ -123,21 +199,38 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
       </ScrollArea>
 
       <div className="p-4 border-t border-white/20">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,.pdf,.doc,.docx,.txt"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
         <div className="flex gap-2">
-          <button className="p-2 hover:bg-white/10 rounded-lg transition-all">
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 hover:bg-white/10 rounded-lg transition-all"
+          >
             <Icon name="Paperclip" className="text-white" size={20} />
           </button>
           <input
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
             placeholder="Сообщение..."
             className="flex-1 px-4 py-2 rounded-xl bg-white/10 text-white placeholder-white/60 border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all"
           />
-          <button className="p-2 hover:bg-white/10 rounded-lg transition-all">
-            <Icon name="Smile" className="text-white" size={20} />
-          </button>
-          <button className="px-4 py-2 gradient-purple-magenta rounded-xl hover:opacity-90 transition-all">
+          <EmojiPicker onEmojiSelect={handleEmojiSelect}>
+            <button className="p-2 hover:bg-white/10 rounded-lg transition-all">
+              <Icon name="Smile" className="text-white" size={20} />
+            </button>
+          </EmojiPicker>
+          <button 
+            onClick={handleSendMessage}
+            disabled={!message.trim()}
+            className="px-4 py-2 gradient-purple-magenta rounded-xl hover:opacity-90 transition-all disabled:opacity-50"
+          >
             <Icon name="Send" className="text-white" size={20} />
           </button>
         </div>
