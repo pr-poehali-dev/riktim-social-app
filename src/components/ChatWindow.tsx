@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Icon from '@/components/ui/icon';
+import CallWindow from './CallWindow';
+
+type CallType = 'audio' | 'video' | null;
 
 interface Message {
   id: number;
@@ -27,11 +30,21 @@ interface ChatWindowProps {
 const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
   const [message, setMessage] = useState('');
   const [isTyping] = useState(false);
+  const [activeCall, setActiveCall] = useState<CallType>(null);
 
   const chatName = 'Анна Смирнова';
   const isOnline = true;
 
   return (
+    <>
+      {activeCall && (
+        <CallWindow
+          contactName={chatName}
+          callType={activeCall}
+          onEndCall={() => setActiveCall(null)}
+        />
+      )}
+      
     <div className="flex-1 flex flex-col glass-effect animate-slide-in-right">
       <div className="p-4 border-b border-white/20 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -53,10 +66,16 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="p-2 hover:bg-white/10 rounded-lg transition-all">
+          <button 
+            onClick={() => setActiveCall('audio')}
+            className="p-2 hover:bg-white/10 rounded-lg transition-all"
+          >
             <Icon name="Phone" className="text-white" size={20} />
           </button>
-          <button className="p-2 hover:bg-white/10 rounded-lg transition-all">
+          <button 
+            onClick={() => setActiveCall('video')}
+            className="p-2 hover:bg-white/10 rounded-lg transition-all"
+          >
             <Icon name="Video" className="text-white" size={20} />
           </button>
         </div>
@@ -124,6 +143,7 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

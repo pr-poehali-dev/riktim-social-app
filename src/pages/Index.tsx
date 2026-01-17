@@ -1,17 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ChatList from '@/components/ChatList';
 import ChatWindow from '@/components/ChatWindow';
 import Profile from '@/components/Profile';
+import Auth from '@/components/Auth';
+import NotificationContainer from '@/components/NotificationContainer';
 import Icon from '@/components/ui/icon';
 
 type View = 'chats' | 'profile';
 
 const Index = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentView, setCurrentView] = useState<View>('chats');
   const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
 
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const handleAuthComplete = (userData: { phone: string; name: string }) => {
+    console.log('User authenticated:', userData);
+    setIsAuthenticated(true);
+  };
+
+  const handleNotificationClick = (chatId: number) => {
+    setCurrentView('chats');
+    setSelectedChatId(chatId);
+  };
+
+  if (!isAuthenticated) {
+    return <Auth onAuthComplete={handleAuthComplete} />;
+  }
+
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-gradient-purple via-gradient-magenta to-gradient-blue">
+    <>
+      <NotificationContainer onNotificationClick={handleNotificationClick} />
+      
+      <div className="h-screen flex flex-col bg-gradient-to-br from-gradient-purple via-gradient-magenta to-gradient-blue">
       <header className="glass-effect border-b border-white/20 px-4 py-3 flex items-center justify-between">
         <h1 className="text-2xl font-montserrat font-bold text-white">Riktim</h1>
         <div className="flex gap-2">
@@ -49,6 +75,7 @@ const Index = () => {
         {currentView === 'profile' && <Profile />}
       </div>
     </div>
+    </>
   );
 };
 
